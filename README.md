@@ -161,8 +161,6 @@ free-code
 - **[Free.ai](https://free.ai)** — 400+ free AI tools on the web
 - **[Python SDK](https://github.com/freeaigit/free-sdk)** — `pip install free-dot-ai` — use Free.ai from your code
 - **[CLI Coder](https://github.com/freeaigit/free-code)** — `pip install freeai-code` — AI coding in your terminal
-- **[iOS App](https://github.com/nadermx/free-ios)** — Native iPhone/iPad app
-- **[Android App](https://github.com/nadermx/free-android)** — Native Android app
 - **[API Docs](https://free.ai/api/)** — Build on top of Free.ai
 - **[Web IDE](https://free.ai/coder/)** — Code in your browser
 
