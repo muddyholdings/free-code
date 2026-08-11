@@ -212,6 +212,148 @@ def run(task: tuple) -> None:
 
 
 @main.command()
+@click.argument("prompt", nargs=-1, required=True)
+@click.option("--repo", "repo_url", default=None, metavar="URL",
+              help="Git repository URL to run the task against.")
+@click.option("--model", "model",
+              type=click.Choice(["qwen-coder-32b", "deepseek-coder"]),
+              default="qwen-coder-32b", show_default=True,
+              help="Cloud model to run the task with.")
+@click.option("--no-watch", is_flag=True,
+              help="Submit and exit without polling for the result.")
+@click.option("--download", "download_dir", metavar="DIR",
+              type=click.Path(file_okay=False), default=None,
+              help="Download and unzip the task output into DIR on completion.")
+def cloud(prompt: tuple, repo_url: Optional[str], model: str,
+          no_watch: bool, download_dir: Optional[str]) -> None:
+    """Run a coding task in the Free.ai cloud and stream its progress."""
+    import time
+
+    from free_code.cloud import (
+        AuthRequired,
+        CloudClient,
+        CloudError,
+        POLL_INTERVAL,
+        queue_position_of,
+        task_id_of,
+    )
+    from free_code.ui.terminal import print_error, print_info, print_markdown, print_success
+
+    client = CloudClient()
+    prompt_str = " ".join(prompt)
+
+    try:
+        task = client.submit(prompt_str, repo_url=repo_url, model=model)
+    except AuthRequired as e:
+        console.print(str(e))
+        sys.exit(1)
+    except CloudError as e:
+        print_error(str(e))
+        sys.exit(1)
+
+    task_id = task_id_of(task)
+    if not task_id:
+        print_error(f"Unexpected API response: {task}")
+        sys.exit(1)
+
+    position = queue_position_of(task)
+    if position is not None:
+        print_success(f"Task submitted: {task_id} (queue position {position})")
+    else:
+        print_success(f"Task submitted: {task_id}")
+
+    if no_watch and not download_dir:
+        print_info("Check progress with: free-code tasks")
+        return
+    if no_watch and download_dir:
+        print_info("--download requires watching the task; polling anyway.")
+
+    last_printed = None
+    try:
+        while True:
+            try:
+                task = client.get(task_id)
+            except CloudError as e:
+                print_error(str(e))
+                sys.exit(1)
+
+            status = str(task.get("status", "")).lower()
+            position = queue_position_of(task)
+            line = f"queued (position {position})" if status == "queued" and position is not None else status
+            if line != last_printed:
+                print_info(f"Status: {line}")
+                last_printed = line
+
+            if status in ("completed", "failed", "cancelled", "error"):
+                break
+            time.sleep(POLL_INTERVAL)
+    except KeyboardInterrupt:
+        console.print(f"\n[dim]Stopped watching. Task {task_id} keeps running; "
+                      f"check it with: free-code tasks[/dim]")
+        return
+
+    if status == "completed":
+        result_text = task.get("result_text") or task.get("result") or ""
+        if result_text:
+            console.print()
+            print_markdown(str(result_text))
+        output_url = task.get("output_url")
+        if output_url:
+            print_info(f"Output: {output_url}")
+            if download_dir:
+                try:
+                    dest = client.download_output(str(output_url), download_dir)
+                    print_success(f"Output downloaded and extracted to {dest}")
+                except CloudError as e:
+                    print_error(str(e))
+                    sys.exit(1)
+        elif download_dir:
+            print_info("Task completed but has no downloadable output.")
+    else:
+        error = task.get("error") or task.get("result_text") or "no details"
+        print_error(f"Task {status}: {error}")
+        sys.exit(1)
+
+
+@main.command()
+def tasks() -> None:
+    """List your recent cloud tasks."""
+    from free_code.cloud import AuthRequired, CloudClient, CloudError, task_id_of
+    from free_code.ui.terminal import print_error
+
+    client = CloudClient()
+    try:
+        items = client.list()
+    except AuthRequired as e:
+        console.print(str(e))
+        sys.exit(1)
+    except CloudError as e:
+        print_error(str(e))
+        sys.exit(1)
+
+    if not items:
+        console.print("[dim]No cloud tasks yet. Start one with: "
+                      "free-code cloud \"task description\"[/dim]")
+        return
+
+    table = Table(title="Cloud Tasks", show_header=True, header_style="bold")
+    table.add_column("ID", style="cyan")
+    table.add_column("Status")
+    table.add_column("Created")
+    table.add_column("Task")
+
+    for item in items:
+        task_id = task_id_of(item)
+        preview = str(item.get("prompt") or item.get("preview") or "").replace("\n", " ")
+        if len(preview) > 60:
+            preview = preview[:57] + "..."
+        created = str(item.get("created_at") or item.get("created") or "")[:19].replace("T", " ")
+        table.add_row(task_id[:8], str(item.get("status", "")), created, preview)
+
+    console.print(table)
+
+
+@main.command()
 def init() -> None:
     """Initialize free-code in the current project."""
     from free_code.context.discovery import discover_files

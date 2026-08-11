@@ -30,6 +30,9 @@ free-code ask "How does the auth system work?"
 # Execute a task
 free-code run "Add unit tests for the User model"
 
+# Run a task in the Free.ai cloud (codex-style) and watch it
+free-code cloud "Fix the failing CI on main" --repo https://github.com/you/project
+
 # Initialize and scan codebase
 free-code init
 ```
@@ -41,6 +44,8 @@ free-code init
 | `free-code` | Interactive coding session (alias: `free-code chat`) |
 | `free-code ask "question"` | One-shot question about the codebase |
 | `free-code run "task"` | Execute a coding task |
+| `free-code cloud "task"` | Run a coding task in the Free.ai cloud (`--repo URL`, `--model`, `--no-watch`, `--download DIR`) |
+| `free-code tasks` | List your recent cloud tasks |
 | `free-code init` | Initialize config, scan codebase |
 | `free-code config` | Show current configuration |
 | `free-code config set key value` | Set a config value |
@@ -56,6 +61,28 @@ free-code init
 - Context window optimization and repo map generation
 - .gitignore-aware file discovery
 - Session sync — continue conversations from [web](https://free.ai/coder/) to CLI and back
+- Cloud tasks — run long coding tasks on Free.ai's GPUs and pick up the result later
+
+## Cloud Tasks
+
+Run a coding task on Free.ai's infrastructure instead of your machine — like a codex agent from the terminal. Requires an API key: run `free-code login` and paste a key from [free.ai/developer](https://free.ai/developer/) (free tier works).
+
+```bash
+# Submit and watch (polls until done, prints the markdown report)
+free-code cloud "Add rate limiting to the API" --repo https://github.com/you/project
+
+# Pick the cloud model
+free-code cloud "Refactor the auth module" --model deepseek-coder
+
+# Fire and forget (you get an email when it finishes)
+free-code cloud "Write integration tests" --no-watch
+
+# Download the resulting code as a zip, unpacked into ./result
+free-code cloud "Fix the flaky test suite" --download ./result
+
+# List recent tasks
+free-code tasks
+```
 
 ## Configuration
 
@@ -70,7 +97,7 @@ free-code config set provider openai
 free-code config set api_key sk-xxx
 
 # Choose a model
-free-code config set model qwen2.5-coder-32b
+free-code config set model qwen7b
 
 # Enable safe mode (confirm before file writes)
 free-code config set safe_mode true
@@ -80,7 +107,7 @@ free-code config set safe_mode true
 
 | Provider | Default Model | Free Tier |
 |----------|--------------|-----------|
-| **free.ai** (default) | Qwen 2.5 Coder 32B | 50K tokens/day |
+| **free.ai** (default) | Qwen 7B | 50K tokens/day |
 | **openai** | GPT-4o | BYOK — no markup |
 | **anthropic** | Claude Sonnet 4 | BYOK — no markup |
 | **google** | Gemini 2.5 Pro | BYOK — no markup |

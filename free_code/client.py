@@ -8,6 +8,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 import httpx
 
+from free_code import __version__
 from free_code.config import (
     get_api_url,
     get_auth_header,
@@ -29,7 +30,7 @@ class CoderClient:
         self.api_url = get_api_url(self.config)
         self.headers = get_auth_header(self.config)
         self.headers["Content-Type"] = "application/json"
-        self.headers["User-Agent"] = "free-code/0.1.0"
+        self.headers["User-Agent"] = f"free-code/{__version__}"
 
     async def chat_stream(
         self,
@@ -38,72 +39,14 @@ class CoderClient:
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> AsyncIterator[Dict[str, Any]]:
         """Stream a chat completion, yielding parsed events."""
-        if self.provider == "free.ai":
-            async for event in self._stream_free_ai(messages, system, tools):
-                yield event
-        elif self.provider == "anthropic":
+        if self.provider == "anthropic":
             async for event in self._stream_anthropic(messages, system, tools):
                 yield event
         else:
-            # OpenAI-compatible (OpenAI, OpenRouter, Google via compat)
+            # OpenAI-compatible (Free.ai /v1/chat/completions, OpenAI,
+            # OpenRouter, Google via compat)
             async for event in self._stream_openai_compat(messages, system, tools):
                 yield event
-
-    async def _stream_free_ai(
-        self,
-        messages: List[Dict[str, str]],
-        system: Optional[str] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
-        """Stream from the Free.ai coder agent endpoint."""
-        payload: Dict[str, Any] = {
-            "messages": messages,
-            "model": self.model,
-            "stream": True,
-        }
-        if system:
-            payload["system"] = system
-        if tools:
-            payload["tools"] = tools
-
-        try:
-            async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-                async with client.stream(
-                    "POST",
-                    self.api_url,
-                    json=payload,
-                    headers=self.headers,
-                ) as response:
-                    if response.status_code != 200:
-                        body = await response.aread()
-                        yield {
-                            "type": "error",
-                            "content": f"API error {response.status_code}: {body.decode(errors='replace')}",
-                        }
-                        return
-
-                    buffer = ""
-                    async for chunk in response.aiter_text():
-                        buffer += chunk
-                        while "\n\n" in buffer:
-                            event_str, buffer = buffer.split("\n\n", 1)
-                            for line in event_str.strip().split("\n"):
-                                if line.startswith("data: "):
-                                    data_str = line[6:]
-                                    if data_str == "[DONE]":
-                                        yield {"type": "done"}
-                                        return
-                                    try:
-                                        yield json.loads(data_str)
-                                    except json.JSONDecodeError:
-                                        yield {"type": "text", "content": data_str}
-        except httpx.ConnectError:
-            yield {
-                "type": "error",
-                "content": "Cannot connect to Free.ai API. Check your internet connection.",
-            }
-        except httpx.TimeoutException:
-            yield {"type": "error", "content": "Request timed out."}
 
     async def _stream_openai_compat(
         self,
@@ -122,6 +65,8 @@ class CoderClient:
             "messages": all_messages,
             "stream": True,
         }
+        if tools:
+            payload["tools"] = tools
 
         try:
             async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:

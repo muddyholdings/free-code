@@ -6,14 +6,11 @@ from typing import Any, Dict, List, Optional
 
 from free_code.config import PROVIDER_MODELS, load_config
 
-# Models available on Free.ai (self-hosted, free tier)
+# Models available on Free.ai's OpenAI-compatible endpoint
+# (https://api.free.ai/v1/chat/completions — ids are whitelisted server-side)
 FREE_AI_MODELS = [
-    {"id": "qwen2.5-coder-32b", "name": "Qwen 2.5 Coder 32B", "context": 32768, "free": True},
-    {"id": "qwen2.5-72b", "name": "Qwen 2.5 72B", "context": 32768, "free": True},
-    {"id": "qwen2.5-7b", "name": "Qwen 2.5 7B", "context": 32768, "free": True},
-    {"id": "deepseek-coder-v2-lite", "name": "DeepSeek Coder V2 Lite", "context": 16384, "free": True},
-    {"id": "mistral-7b", "name": "Mistral 7B", "context": 32768, "free": True},
-    {"id": "phi-3", "name": "Phi-3", "context": 4096, "free": True},
+    {"id": "qwen7b", "name": "Qwen 7B (fast)", "context": 32768, "free": True},
+    {"id": "qwen3-8b", "name": "Qwen3 8B", "context": 32768, "free": True},
 ]
 
 
@@ -25,7 +22,7 @@ def get_model(config: Optional[Dict[str, Any]] = None) -> str:
     if model:
         return model
     provider = config.get("provider", "free.ai")
-    return PROVIDER_MODELS.get(provider, "qwen2.5-coder-32b")
+    return PROVIDER_MODELS.get(provider, "qwen7b")
 
 
 def list_models(provider: Optional[str] = None) -> List[Dict[str, Any]]:

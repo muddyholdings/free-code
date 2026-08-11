@@ -14,8 +14,8 @@ HISTORY_FILE = CONFIG_DIR / "history"
 
 DEFAULTS: Dict[str, Any] = {
     "provider": "free.ai",
-    "model": "qwen2.5-coder-32b",
-    "api_url": "https://api.free.ai/coder/",
+    "model": None,  # resolved per-provider via models.get_model / PROVIDER_MODELS
+    "api_url": "https://api.free.ai/v1/chat/completions",
     "token": None,
     "api_key": None,
     "safe_mode": True,
@@ -26,7 +26,7 @@ DEFAULTS: Dict[str, Any] = {
 }
 
 PROVIDER_ENDPOINTS = {
-    "free.ai": "https://api.free.ai/coder/",
+    "free.ai": "https://api.free.ai/v1/chat/completions",
     "openai": "https://api.openai.com/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/messages",
     "google": "https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent",
@@ -34,7 +34,7 @@ PROVIDER_ENDPOINTS = {
 }
 
 PROVIDER_MODELS = {
-    "free.ai": "qwen2.5-coder-32b",
+    "free.ai": "qwen7b",
     "openai": "gpt-4o",
     "anthropic": "claude-sonnet-4-20250514",
     "google": "gemini-2.0-flash",
