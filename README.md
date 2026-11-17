@@ -186,8 +186,8 @@ free-code
 ## Free.ai Ecosystem
 
 - **[Free.ai](https://free.ai)** — 400+ free AI tools on the web
-- **[Python SDK](https://github.com/freeaigit/free-sdk)** — `pip install free-dot-ai` — use Free.ai from your code
-- **[CLI Coder](https://github.com/freeaigit/free-code)** — `pip install freeai-code` — AI coding in your terminal
+- **[Python SDK](https://github.com/muddyholdings/free-sdk)** — `pip install free-dot-ai` — use Free.ai from your code
+- **[CLI Coder](https://github.com/muddyholdings/free-code)** — `pip install freeai-code` — AI coding in your terminal
 - **[iOS App](https://free.ai/ios/)** — Native iPhone/iPad app
 - **[Android App](https://free.ai/android/)** — Native Android app
 - **[API Docs](https://free.ai/api/)** — Build on top of Free.ai
