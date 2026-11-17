@@ -1,0 +1,65 @@
+#!/usr/bin/env sh
+# free-code: wrapper that finds and runs the Python free-code CLI
+# Works on macOS, Linux, Windows (Git Bash, WSL, MSYS2)
+
+set -e
+
+# Find the free-code Python binary
+find_free_code() {
+  # Check common locations
+  command -v free-code 2>/dev/null && return 0
+
+  # Check pip --user install locations
+  if [ -n "$HOME" ]; then
+    for dir in \
+      "$HOME/.local/bin/free-code" \
+      "$HOME/Library/Python/3.*/bin/free-code" \
+      "$HOME/AppData/Roaming/Python/Python3*/Scripts/free-code.exe" \
+      "$HOME/AppData/Roaming/Python/Python3*/Scripts/free-code" \
+      ; do
+      # shellcheck disable=SC2086
+      for match in $dir; do
+        if [ -x "$match" ] 2>/dev/null; then
+          echo "$match"
+          return 0
+        fi
+      done
+    done
+  fi
+
+  # Try running as Python module
+  for py in python3 python py; do
+    if command -v "$py" >/dev/null 2>&1; then
+      if "$py" -c "import free_code" 2>/dev/null; then
+        echo "PYTHON_MODULE:$py"
+        return 0
+      fi
+    fi
+  done
+
+  return 1
+}
+
+FREE_CODE_BIN=$(find_free_code) || true
+
+if [ -z "$FREE_CODE_BIN" ]; then
+  echo "free-code: Python package not found." >&2
+  echo "" >&2
+  echo "Install it with:" >&2
+  echo "  pip install free-code" >&2
+  echo "" >&2
+  echo "Or reinstall the npm package:" >&2
+  echo "  npm install -g free-code" >&2
+  exit 1
+fi
+
+# If we found it as a Python module, run via python -m
+case "$FREE_CODE_BIN" in
+  PYTHON_MODULE:*)
+    PY_CMD="${FREE_CODE_BIN#PYTHON_MODULE:}"
+    exec "$PY_CMD" -m free_code "$@"
+    ;;
+  *)
+    exec "$FREE_CODE_BIN" "$@"
+    ;;
+esac

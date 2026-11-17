@@ -1,0 +1,35 @@
+{
+  "name": "freeai-code",
+  "version": "0.1.4",
+  "description": "Free AI coding assistant, open-source Claude Code alternative. Powered by Free.ai",
+  "bin": {
+    "free-code": "bin/free-code"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "keywords": [
+    "ai",
+    "coding-assistant",
+    "cli",
+    "claude-code",
+    "cursor",
+    "copilot",
+    "free",
+    "open-source"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muddyholdings/free-code.git",
+    "directory": "npm"
+  },
+  "homepage": "https://free.ai/coder/",
+  "author": "Free.ai <hello@free.ai>",
+  "engines": {
+    "node": ">=14"
+  },
+  "bugs": {
+    "url": "https://github.com/muddyholdings/free-code/issues"
+  }
+}
