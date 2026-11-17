@@ -40,7 +40,7 @@ function Install-FreeCode {
     switch ($method) {
         'uv' {
             if (-not (Test-Cmd 'uv') -and -not (Install-Uv)) { throw 'Could not install uv (needs access to astral.sh).' }
-            uv tool install --force $spec
+            uv tool install --force --refresh $spec
             Assert-Ok 'uv tool install'
         }
         'pipx' {

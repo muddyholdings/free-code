@@ -59,7 +59,7 @@ main() {
   case "$method" in
     uv)
       have uv || install_uv || die "could not install uv (needs curl or wget and access to astral.sh)."
-      uv tool install --force "$SPEC" || die "uv could not install $SPEC" ;;
+      uv tool install --force --refresh "$SPEC" || die "uv could not install $SPEC" ;;
     pipx)
       have pipx || die "pipx not found."
       pipx install --force "$SPEC" || die "pipx could not install $SPEC" ;;
