@@ -6,16 +6,30 @@ Free AI coding assistant for your terminal. A free, open-source alternative to C
 
 ## Install
 
+One line, nothing to set up first (no Python, no pip, no sudo). It uses [uv](https://docs.astral.sh/uv/) and installs it for you if missing.
+
 ```bash
-# Universal (Linux / macOS)
-curl -fsSL https://free.ai/install | sh
+# macOS / Linux
+curl -fsSL https://free.ai/install.sh | sh
+```
 
-# pip
+```powershell
+# Windows (PowerShell)
+irm https://free.ai/install.ps1 | iex
+```
+
+Re-run the same line to upgrade. Pin a version with `FREE_CODE_VERSION=0.1.4` (PowerShell: `$env:FREE_CODE_VERSION = "0.1.4"`). The scripts are in [`install/`](install/): they use uv, else pipx, else a private venv in `~/.free-code`, and put `free-code` in `~/.local/bin`.
+
+Already have Python or Node?
+
+```bash
 pip install freeai-code
-
-# npm
 npm install -g freeai-code
 ```
+
+## First run
+
+Run `free-code` in a project. The free anonymous tier works with no account. When the daily anonymous limit is used up, the CLI tells you to get a free key (no card) at https://free.ai/account/#api-keys and run `free-code login`.
 
 ## Quick Start
 
@@ -60,12 +74,12 @@ free-code init
 - Streaming output with syntax highlighting
 - Context window optimization and repo map generation
 - .gitignore-aware file discovery
-- Session sync — continue conversations from [web](https://free.ai/coder/) to CLI and back
-- Cloud tasks — run long coding tasks on Free.ai's GPUs and pick up the result later
+- Session sync: continue conversations from [web](https://free.ai/coder/) to CLI and back
+- Cloud tasks: run long coding tasks on Free.ai's GPUs and pick up the result later
 
 ## Cloud Tasks
 
-Run a coding task on Free.ai's infrastructure instead of your machine — like a codex agent from the terminal. Requires an API key: run `free-code login` and paste a key from [free.ai/developer](https://free.ai/developer/) (free tier works).
+Run a coding task on Free.ai's infrastructure instead of your machine: like a codex agent from the terminal. Requires an API key: run `free-code login` and paste a key from [free.ai/developer](https://free.ai/developer/) (free tier works).
 
 ```bash
 # Submit and watch (polls until done, prints the markdown report)
@@ -92,7 +106,7 @@ Config is stored at `~/.free-code/config.yaml`.
 # Set your Free.ai token (get one at https://free.ai/account/)
 free-code config set token sk-free-xxx
 
-# Use your own API key (BYOK — no markup, use your own provider)
+# Use your own API key (BYOK: no markup, use your own provider)
 free-code config set provider openai
 free-code config set api_key sk-xxx
 
@@ -108,10 +122,10 @@ free-code config set safe_mode true
 | Provider | Default Model | Free Tier |
 |----------|--------------|-----------|
 | **free.ai** (default) | Qwen 7B | 50K tokens/day |
-| **openai** | GPT-4o | BYOK — no markup |
-| **anthropic** | Claude Sonnet 4 | BYOK — no markup |
-| **google** | Gemini 2.5 Pro | BYOK — no markup |
-| **openrouter** | 346+ models | BYOK — no markup |
+| **openai** | GPT-4o | BYOK: no markup |
+| **anthropic** | Claude Sonnet 4 | BYOK: no markup |
+| **google** | Gemini 2.5 Pro | BYOK: no markup |
+| **openrouter** | 346+ models | BYOK: no markup |
 
 ## How It Works
 
@@ -128,13 +142,13 @@ All file operations happen locally on your machine. The AI sees only what it nee
 - **Anonymous**: 10K tokens/day (Qwen Coder only)
 - **Free account**: 50K tokens/day (sign up at [free.ai](https://free.ai/signup/))
 - **Paid plans**: From $5/month for 200K tokens ([pricing](https://free.ai/pricing/))
-- **BYOK**: $0 — bring your own API key, no markup
+- **BYOK**: $0: bring your own API key, no markup
 
 ## Links
 
-- [Free.ai](https://free.ai) — 400+ free AI tools
-- [Web IDE](https://free.ai/coder/) — Use in your browser
-- [API Docs](https://free.ai/api/) — Build on top of Free.ai
+- [Free.ai](https://free.ai): 400+ free AI tools
+- [Web IDE](https://free.ai/coder/): Use in your browser
+- [API Docs](https://free.ai/api/): Build on top of Free.ai
 - [Compare vs Claude Code](https://free.ai/compare/coder-vs-claude-code/)
 - [Compare vs Cursor](https://free.ai/compare/coder-vs-cursor/)
 
@@ -144,7 +158,7 @@ All file operations happen locally on your machine. The AI sees only what it nee
 |---------|--------------|-------------|--------------|--------|----------------|
 | Free tier | 50K tokens/day | None ($20/mo) | None ($200/mo) | None ($20/mo) | None ($10/mo) |
 | Self-hosted models | Yes (Qwen, DeepSeek) | No | No | No | No |
-| BYOK (bring your own key) | Yes — $0 markup | No | No | Partial | No |
+| BYOK (bring your own key) | Yes: $0 markup | No | No | Partial | No |
 | Open source CLI | Yes (MIT) | No | No | No | No |
 | Web IDE | Yes (free.ai/coder/) | No | Yes | Yes | No |
 | Terminal access | Yes | Yes | Yes | Yes | No |
@@ -153,7 +167,7 @@ All file operations happen locally on your machine. The AI sees only what it nee
 
 ## BYOK (Bring Your Own Key)
 
-Use your own API keys from any provider — zero markup, zero fees. Free.ai just proxies the request.
+Use your own API keys from any provider: zero markup, zero fees. Free.ai just proxies the request.
 
 ```bash
 # OpenAI
@@ -185,13 +199,13 @@ free-code
 
 ## Free.ai Ecosystem
 
-- **[Free.ai](https://free.ai)** — 400+ free AI tools on the web
-- **[Python SDK](https://github.com/muddyholdings/free-sdk)** — `pip install free-dot-ai` — use Free.ai from your code
-- **[CLI Coder](https://github.com/muddyholdings/free-code)** — `pip install freeai-code` — AI coding in your terminal
-- **[iOS App](https://free.ai/ios/)** — Native iPhone/iPad app
-- **[Android App](https://free.ai/android/)** — Native Android app
-- **[API Docs](https://free.ai/api/)** — Build on top of Free.ai
-- **[Web IDE](https://free.ai/coder/)** — Code in your browser
+- **[Free.ai](https://free.ai)**: 400+ free AI tools on the web
+- **[Python SDK](https://github.com/muddyholdings/free-sdk)**: `pip install free-dot-ai`: use Free.ai from your code
+- **[CLI Coder](https://github.com/muddyholdings/free-code)**: `pip install freeai-code`: AI coding in your terminal
+- **[iOS App](https://free.ai/ios/)**: Native iPhone/iPad app
+- **[Android App](https://free.ai/android/)**: Native Android app
+- **[API Docs](https://free.ai/api/)**: Build on top of Free.ai
+- **[Web IDE](https://free.ai/coder/)**: Code in your browser
 
 ## License
 

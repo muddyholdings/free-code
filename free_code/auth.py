@@ -29,7 +29,7 @@ def login_flow() -> None:
     """Interactive login flow."""
     config = load_config()
     console.print()
-    console.print("[bold]Free.ai Coder — Login[/bold]")
+    console.print("[bold]Free.ai Coder: Login[/bold]")
     console.print()
 
     provider = Prompt.ask(
@@ -41,7 +41,7 @@ def login_flow() -> None:
     if provider == "free.ai":
         console.print()
         console.print("Free.ai offers free daily limits with no account required.")
-        console.print("For higher limits, get a token at [link=https://free.ai/pricing]https://free.ai/pricing[/link]")
+        console.print("For higher limits, get a free key at [link=https://free.ai/account/#api-keys]https://free.ai/account/#api-keys[/link]")
         console.print()
         token = Prompt.ask("Free.ai token (press Enter to skip)", default="")
         if token:
@@ -64,7 +64,7 @@ def login_flow() -> None:
 
         api_key = Prompt.ask(f"\n{key_name}")
         if not api_key:
-            console.print("[red]API key is required for {provider}.[/red]")
+            console.print(f"[red]API key is required for {provider}.[/red]")
             sys.exit(1)
 
         set_config_value("provider", provider)

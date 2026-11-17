@@ -6,6 +6,15 @@ Powered by [Free.ai](https://free.ai).
 
 ## Install
 
+The one-liner needs no Python or Node setup:
+
+```bash
+curl -fsSL https://free.ai/install.sh | sh        # macOS / Linux
+irm https://free.ai/install.ps1 | iex             # Windows PowerShell
+```
+
+Or with npm (needs Python 3.9+):
+
 ```bash
 npm install -g freeai-code
 ```
@@ -13,13 +22,7 @@ npm install -g freeai-code
 Or with pip:
 
 ```bash
-pip install free-code
-```
-
-Or the universal one-liner:
-
-```bash
-curl -fsSL https://free.ai/install | sh
+pip install freeai-code
 ```
 
 ## Quick Start

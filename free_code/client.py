@@ -19,6 +19,19 @@ from free_code.models import get_model
 
 DEFAULT_TIMEOUT = 120.0
 
+KEY_URL = "https://free.ai/account/#api-keys"
+
+
+def api_error_message(provider: str, status: int, body: str) -> str:
+    """Turn an API error into a message that says what to do next."""
+    msg = f"API error {status}: {body}"
+    if provider == "free.ai" and status in (401, 402, 403, 429):
+        what = "The free anonymous limit for today is used up." if status == 429 else "Free.ai needs a key for this request."
+        msg += (
+            f"\n{what} Get a free key (no card) at {KEY_URL}, then run: free-code login"
+        )
+    return msg
+
 
 class CoderClient:
     """API client for the Free.ai Coder agent or direct LLM calls."""
@@ -80,7 +93,7 @@ class CoderClient:
                         body = await response.aread()
                         yield {
                             "type": "error",
-                            "content": f"API error {response.status_code}: {body.decode(errors='replace')}",
+                            "content": api_error_message(self.provider, response.status_code, body.decode(errors="replace")),
                         }
                         return
 
@@ -138,7 +151,7 @@ class CoderClient:
                         body = await response.aread()
                         yield {
                             "type": "error",
-                            "content": f"API error {response.status_code}: {body.decode(errors='replace')}",
+                            "content": api_error_message(self.provider, response.status_code, body.decode(errors="replace")),
                         }
                         return
 
