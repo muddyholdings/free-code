@@ -75,7 +75,7 @@ function Install-FreeCode {
     if (-not (Test-Path $exe)) { throw "free-code was not created in $bin." }
     & $exe --version
     Write-Host ''
-    Write-Host "Next: run 'free-code' in a project folder. Docs: https://free.ai/code/"
+    Write-Host "Next: run 'free-code' in a project folder. Docs: https://free.ai/code/cli/"
 }
 
 Install-FreeCode

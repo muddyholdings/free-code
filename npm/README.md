@@ -25,6 +25,8 @@ Or with pip:
 pip install freeai-code
 ```
 
+Full install and setup guide (sign-in, models, uninstall, troubleshooting): https://free.ai/code/cli/
+
 ## Quick Start
 
 ```bash

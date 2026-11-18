@@ -83,7 +83,7 @@ main() {
       say "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> $rc" ;;
   esac
   say ""
-  say "Next: run 'free-code' in a project folder. Docs: https://free.ai/code/"
+  say "Next: run 'free-code' in a project folder. Docs: https://free.ai/code/cli/"
 }
 
 ORIG_PATH="$PATH"

@@ -2,7 +2,7 @@
 
 Free AI coding assistant for your terminal. A free, open-source alternative to Claude Code, Cursor, and GitHub Copilot.
 
-**[Website](https://free.ai/coder/)** | **[PyPI](https://pypi.org/project/freeai-code/)** | **[npm](https://www.npmjs.com/package/freeai-code)** | **[Web IDE](https://free.ai/coder/)**
+**[Install guide](https://free.ai/code/cli/)** | **[Website](https://free.ai/coder/)** | **[PyPI](https://pypi.org/project/freeai-code/)** | **[npm](https://www.npmjs.com/package/freeai-code)** | **[Web IDE](https://free.ai/coder/)**
 
 ## Install
 
@@ -23,9 +23,13 @@ Re-run the same line to upgrade. Pin a version with `FREE_CODE_VERSION=0.1.4` (P
 Already have Python or Node?
 
 ```bash
+uv tool install freeai-code
+pipx install freeai-code
 pip install freeai-code
-npm install -g freeai-code
+npm install -g freeai-code   # needs Python 3.9+ on the machine
 ```
+
+Step-by-step setup, sign-in, models, uninstall and troubleshooting: **https://free.ai/code/cli/**
 
 ## First run
 
@@ -172,6 +176,10 @@ Never sent: your code, file contents, prompts, model replies, shell commands, fi
 
 `free-code update` runs the right upgrade for how you installed it: `uv tool upgrade`, `pipx upgrade`, or `pip install --upgrade` (the installer's private venv, pip and npm). Once a day, without delaying startup, free-code checks whether a newer release exists and prints one line if so; it never installs by itself. Turn the check off with `FREE_CODE_NO_UPDATE_CHECK=1` or `free-code config set update_check false` (it is also off when `CI` is set).
 
+## Uninstalling
+
+Use the tool that installed it: `uv tool uninstall freeai-code`, `pipx uninstall freeai-code`, `pip uninstall freeai-code` or `npm uninstall -g freeai-code`. If the one-line installer fell back to its private venv, delete `~/.free-code/venv` and `~/.local/bin/free-code` (`free-code.cmd` on Windows). Settings, saved sessions and the MCP list live in `~/.free-code/`; delete it to remove them too.
+
 ## Tool manifest
 
 The tool list comes from `https://free.ai/api/v1/code/manifest/`, cached for six hours and validated before use: HTTPS only, size-capped, strict schema, and tools are declarative calls to Free.ai API paths that can only save files inside your project. A manifest can add a tool, fix a tool's description or parameters, switch a broken tool off, and announce the newest release. It cannot add or replace local tools (shell, files, git), and an older manifest than the cached one is ignored. Offline, or on any error, the built-in set is used. Opt out with `FREE_CODE_NO_MANIFEST=1` or `free-code config set manifest false`. Only the version is sent in the request.
@@ -220,7 +228,7 @@ free-code config set safe_mode true
 
 | Provider | Default Model | Free Tier |
 |----------|--------------|-----------|
-| **free.ai** (default) | Qwen 7B | 50K tokens/day |
+| **free.ai** (default) | Qwen 7B | Daily free allowance |
 | **openai** | GPT-4o | BYOK: no markup |
 | **anthropic** | Claude Sonnet 4 | BYOK: no markup |
 | **google** | Gemini 2.5 Pro | BYOK: no markup |
@@ -238,13 +246,14 @@ All file operations happen locally on your machine. The AI sees only what it nee
 
 ## Pricing
 
-- **Anonymous**: 10K tokens/day (Qwen Coder only)
-- **Free account**: 50K tokens/day (sign up at [free.ai](https://free.ai/signup/))
+- **Anonymous**: a free daily allowance on Free.ai's self-hosted models, no account needed
+- **Free account**: a larger daily allowance (run `free-code login`, or sign up at [free.ai](https://free.ai/signup/)). Current numbers: [free.ai/code/cli/](https://free.ai/code/cli/)
 - **Paid plans**: From $5/month for 200K tokens ([pricing](https://free.ai/pricing/))
 - **BYOK**: $0: bring your own API key, no markup
 
 ## Links
 
+- [Install and setup guide](https://free.ai/code/cli/): one-line install, sign-in, models, troubleshooting
 - [Free.ai](https://free.ai): 400+ free AI tools
 - [Web IDE](https://free.ai/coder/): Use in your browser
 - [API Docs](https://free.ai/api/): Build on top of Free.ai
@@ -255,7 +264,7 @@ All file operations happen locally on your machine. The AI sees only what it nee
 
 | Feature | Free.ai Coder | Claude Code | OpenAI Codex | Cursor | GitHub Copilot |
 |---------|--------------|-------------|--------------|--------|----------------|
-| Free tier | 50K tokens/day | None ($20/mo) | None ($200/mo) | None ($20/mo) | None ($10/mo) |
+| Free tier | Yes, daily allowance | None ($20/mo) | None ($200/mo) | None ($20/mo) | None ($10/mo) |
 | Self-hosted models | Yes (Qwen, DeepSeek) | No | No | No | No |
 | BYOK (bring your own key) | Yes: $0 markup | No | No | Partial | No |
 | Open source CLI | Yes (MIT) | No | No | No | No |
