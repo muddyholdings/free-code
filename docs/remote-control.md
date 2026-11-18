@@ -10,7 +10,7 @@ This page is the contract for app developers (Android, iOS, web).
 3. An app signed in to the **same account** lists the account's sessions, polls the events, and posts commands (prompt, approve, deny, interrupt, end).
 4. The relay only forwards. It executes nothing. Tool calls that need approval (file writes, shell commands, uploads, MCP tools in safe mode) still need approval; the CLI raises an `approval_request` and waits for the first answer from the terminal or any app. Every remote prompt is also printed in the terminal.
 
-Transport is short polling over HTTPS (about every 1.5 seconds), not websockets. Nothing is stored beyond a rolling buffer of the newest 300 events, deleted an hour after the session ends; a session whose terminal goes silent for 30 minutes is ended. Data passes through free.ai's servers only (no third party). The session can contain code and file contents the model read, so it is visible to the owning account only.
+Transport is short polling over HTTPS (about every 1.5 seconds), not websockets. For an `approval_request` the relay also sends a push notification to the account's registered phones (see "Push notifications" below), so an approval does not wait for the app to be open. Nothing is stored beyond a rolling buffer of the newest 300 events, deleted an hour after the session ends; a session whose terminal goes silent for 30 minutes is ended. Data passes through free.ai's servers only (no third party). The session can contain code and file contents the model read, so it is visible to the owning account only.
 
 If the relay drops, the CLI keeps working locally, buffers up to 500 events and reconnects with backoff. `free-code rc off` (or `/rc off`) ends it.
 
@@ -130,9 +130,39 @@ A typical turn: `prompt`, `status working`, `tool_call`, `approval_request`, `ap
 | 413 | Body too large |
 | 429 | Rate limited, slow down |
 
+## Push notifications (apps)
+
+When a session the account owns emits an `approval_request`, the relay sends an FCM **data** message to every device token registered for that account. Apps register a token with the account key, as for the other endpoints (`Authorization: Bearer sk-free-...`, or the web session plus CSRF). Keys need no CSRF token.
+
+`GET /api/v1/code/rc/push/` returns `{"enabled": true, "devices": 1, "configured": true}`. `configured` is false only if the server has no FCM credential.
+
+`POST /api/v1/code/rc/push/` takes one or both of:
+
+| Body | Meaning |
+|------|---------|
+| `{"token": "<FCM token>", "platform": "android"}` | Register this device (idempotent). A token belongs to one account: registering it again from another account moves it. At most 10 devices per account, the newest kept. Token is 20 to 512 characters of `A-Z a-z 0-9 _ : - .`. |
+| `{"enabled": false}` | Turn Remote Control notifications off (or back on) for the whole account. Default on. |
+
+Both return `200 {"ok": true, "enabled": true, "devices": 1}`. A bad body is `400`, a missing or bad key `401`, more than 60 calls a minute `429`.
+
+`DELETE /api/v1/code/rc/push/` with `{"token": "..."}` unregisters a device and returns `{"ok": true, "removed": 1}`. Call it before the key is cleared on sign-out, so the phone stops receiving that account's approvals.
+
+The message is data only (no `notification` block), so the app builds the notification in the user's language:
+
+```json
+{"type": "rc_approval", "session_id": "74c99245-...", "approval_id": "a1b2c3d4e5f6",
+ "tool": "shell_command", "preview": "npm test", "title": "free-code needs your approval",
+ "body": "shell_command: npm test"}
+```
+
+`tool` is up to 40 characters and `preview` up to 90, one line, with credentials masked a second time on the server (the CLI already redacts). The message is high priority, has a 10 minute time to live and the session id as its collapse key, so a newer approval replaces the older one. Each approval id is pushed once, and an account gets at most 10 pushes a minute. Tapping the notification should open `/code/sessions/<session_id>` in the app; the first events poll returns the pending `approval_request`. A dead token (FCM answers not registered) is deleted by the relay. The push carries no file contents and never answers anything: approve or deny through the commands endpoint as before.
+
+Free.ai's Android app uses Firebase project `free-ai-496521` for this. An app on another platform needs its own registration in that project; the relay only sends to tokens it was given.
+
 ## Guidance for the app UI
 
 - Home: a "Remote sessions" list from the list endpoint, live ones first.
 - Session screen: transcript, a prompt box, Interrupt and End buttons, and Approve and Deny on any unresolved `approval_request`. Show the `preview` so the user can see what they are approving.
 - Disable the prompt box when `status` is `ended`; show a "terminal not responding" banner when `online` is false.
-- Send a local notification when an `approval_request` arrives while the app is backgrounded only if you poll in the background; there is no push channel yet.
+- Register the device token after sign-in and unregister it at sign-out. Ask for the notification permission (Android 13+) when the user first opens the sessions list, not at launch, and offer a switch (`{"enabled": false}`).
+- Do not poll in the background; the push replaces that.
