@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -18,6 +19,7 @@ from free_code.config import load_config
 from free_code.context.repo_map import generate_repo_map
 from free_code.context.window import build_context
 from free_code import sessions as sessions_mod
+from free_code import rc as rc_mod
 from free_code import telemetry
 from free_code.toolset import ToolSet
 from free_code.tools.shell import is_dangerous
@@ -92,9 +94,27 @@ class Agent:
         self.tool_log: List[Dict[str, Any]] = []
         self.denied_for_approval = False
         self.tasks_done = 0
+        self.rc: Optional[rc_mod.RemoteControl] = None
+        self.reader: Optional[rc_mod.TerminalReader] = None
+
+    # ---- Remote Control (no-ops unless `free-code rc` is on for this session)
+    def _emit(self, type_: str, data: Optional[Dict[str, Any]] = None) -> None:
+        if self.rc is not None and self.rc.active:
+            self.rc.emit(type_, data)
+
+    def _cancelled(self) -> bool:
+        if self.rc is not None and self.rc.cancel.is_set():
+            self.rc.cancel.clear()
+            self._emit("notice", {"text": "Interrupted from the app."})
+            self.last_error = "interrupted"
+            if self.output == "rich":
+                console.print("[dim]Interrupted from the app.[/dim]")
+            return True
+        return False
 
     # ---- output helpers (rich in the terminal, quiet for --print / --json)
     def _say(self, text: str) -> None:
+        self._emit("assistant", {"text": rc_mod.redact(text, 4000)})
         if self.output == "rich":
             print_markdown(text)
 
@@ -103,9 +123,11 @@ class Agent:
             return
         print_error(text)
 
-    def _confirm(self, message: str) -> bool:
+    def _confirm(self, message: str, tool: str = "", preview: str = "") -> bool:
         if self.auto_approve:
             return True
+        if self.rc is not None and self.rc.active and self.output == "rich":
+            return self.rc.confirm(message, tool, preview, self.reader, lambda m: console.print(f"[warning]{m}[/warning]"))
         if self.output != "rich" or not sys.stdin.isatty():
             self.denied_for_approval = True
             return False
@@ -136,9 +158,16 @@ class Agent:
         system = self.system
 
         self.messages.append({"role": "user", "content": user_message})
+        self._emit("status", {"state": "working"})
+        if self.rc is not None:
+            self.rc.cancel.clear()
 
         for step in range(self.max_steps):
+            if self._cancelled():
+                break
             response_text = await self._get_response(system)
+            if self._cancelled():
+                break
 
             if not response_text:
                 break
@@ -183,6 +212,7 @@ class Agent:
             self._err(self.last_error)
         self.tasks_done += 1
         self.save_session()
+        self._emit("status", {"state": "idle"})
 
     async def _get_response(self, system: Optional[str] = None) -> str:
         """Get a streaming response from the LLM."""
@@ -194,6 +224,8 @@ class Agent:
             first_chunk = True
             async for event in self.client.chat_stream(self.messages, system=system):
                 event_type = event.get("type", "")
+                if self.rc is not None and self.rc.cancel.is_set():
+                    return ""
 
                 if event_type == "text":
                     content = event.get("content", "")
@@ -261,25 +293,25 @@ class Agent:
         if self.safe_mode:
             if level == "write":
                 show(); shown = True
-                if not self._confirm("Apply this change?"):
+                if not self._confirm("Apply this change?", tool_name, rc_mod.args_preview(tool_name, tool_args)):
                     return None
             elif level == "shell":
                 cmd = tool_args.get("command", "")
                 show(); shown = True
                 if is_dangerous(cmd) and self.output == "rich":
                     console.print("[warning]This command could be dangerous.[/warning]")
-                if not self._confirm(f"Run: {cmd}"):
+                if not self._confirm(f"Run: {cmd}", tool_name, rc_mod.redact(str(cmd), 400)):
                     return None
             elif level in ("upload", "mcp"):
                 show(); shown = True
                 what = ("Upload this file to Free.ai?" if level == "upload"
                         else f"Run MCP tool {tool_name}?")
-                if not self._confirm(what):
+                if not self._confirm(what, tool_name, rc_mod.args_preview(tool_name, tool_args)):
                     return None
         else:
             if level == "shell" and is_dangerous(tool_args.get("command", "")):
                 show(); shown = True
-                if not self._confirm("This command could be dangerous. Run anyway?"):
+                if not self._confirm("This command could be dangerous. Run anyway?", tool_name, rc_mod.redact(str(tool_args.get("command", "")), 400)):
                     return None
         # An auto-approved run still never executes a dangerous command silently.
         if level == "shell" and self.auto_approve and is_dangerous(tool_args.get("command", "")) \
@@ -291,6 +323,9 @@ class Agent:
         if not shown:
             show()
 
+        call_id = uuid.uuid4().hex[:12]
+        self._emit("tool_call", {"id": call_id, "tool": tool_name if kind != "mcp" else tool_name,
+                                 "preview": rc_mod.args_preview(tool_name, tool_args)})
         try:
             result, source = ts.execute(tool_name, dict(tool_args))
         except TypeError:
@@ -303,6 +338,8 @@ class Agent:
             result, source = f"Error executing {tool_name}: {e}", "builtin"
 
         self._record(tool_name, tool_args, result, source)
+        self._emit("tool_result", {"id": call_id, "ok": not str(result).lstrip().startswith("Error"),
+                                   "preview": rc_mod.redact(str(result), 800)})
         if self.output == "rich":
             print_tool_result(result, collapsed=len(str(result)) > 1000)
         return str(result)

@@ -66,6 +66,7 @@ free-code init
 | `free-code models` | Every model Free.ai serves, free tier first (`--free`, `--paid`, `--type image`, a search word) |
 | `free-code tools` | The tools the agent has (local, platform, MCP) and what needs approval (`--refresh` fetches the server manifest) |
 | `free-code mcp add/list/remove/tools/trust` | Use MCP servers such as sttai-mcp |
+| `free-code rc` | Start a session you can watch and drive from the app (`rc status`, `rc off`) |
 | `free-code sessions` | Saved sessions you can resume |
 | `free-code login` / `logout` | Sign in through the browser / forget the key |
 | `free-code update` | Upgrade through whatever installed it (`--check`, `--version X`, `--dry-run`) |
@@ -123,6 +124,18 @@ free-code                          # its tools appear as mcp__stt_ai__<tool>
 ```
 
 `${NAME}` in `--env` values is read from your own environment, so no secret is written to disk. Servers live in `~/.free-code/mcp.json` (same `mcpServers` shape as Claude Desktop; `--url https://...` adds an HTTP server). A project can ship `.free-code/mcp.json`, but opening a repository must not start programs, so it is ignored until you run `free-code mcp trust` and it re-prompts if the file changes. MCP tools ask for approval in safe mode.
+
+## Remote Control
+
+Watch and drive a session from the Free.ai app or https://free.ai/code/sessions/ (works on a phone).
+
+```bash
+free-code rc          # start a session with Remote Control on (or type /rc inside a running one)
+free-code rc status   # this account's remote sessions
+free-code rc off      # end it (also /rc off)
+```
+
+It is opt-in per session and needs `free-code login`. From the app you can see the live transcript and tool calls, send prompts, approve or deny tool calls, interrupt, and end the session. Approvals that safe mode requires stay required: the terminal and the app both get the request and the first answer wins, and every remote prompt is also printed in the terminal. The CLI only makes outbound HTTPS calls to free.ai; messages are relayed between your terminal and devices signed in to your own account, kept as a rolling buffer of the newest 300 events and deleted an hour after the session ends. If the connection drops the session keeps running locally and reconnects. Session text can include code the model read, and tokens and keys are redacted from previews, so treat it like the terminal itself. API for the apps: [docs/remote-control.md](docs/remote-control.md).
 
 ## Scripts and CI
 

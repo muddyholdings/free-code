@@ -22,6 +22,7 @@ SLASH_COMMANDS = {
     "/tools": "List the tools the agent has",
     "/sessions": "List saved sessions",
     "/resume": "Resume a saved session (/resume [id])",
+    "/rc": "Remote Control: drive this session from the app (/rc, /rc off)",
     "/feedback": "Send feedback you type to the Free.ai team",
     "/update": "Check for a newer free-code",
     "/config": "Show current configuration",

@@ -163,15 +163,16 @@ def main(ctx: click.Context, print_prompt: Optional[str], cont: bool, resume_id:
                             resume=resume_id, cont=cont)
         _run_noninteractive(agent, prompt, as_json=as_json, print_mode=True)
         return
-    ctx.invoke(chat, cont=cont, resume_id=resume_id, auto_yes=auto_yes, model_override=model_override,
+    ctx.invoke(chat, cont=cont, resume_id=resume_id, rc_on=False, auto_yes=auto_yes, model_override=model_override,
                max_steps=max_steps, no_mcp=no_mcp, as_json=False)
 
 
 @main.command()
 @click.option("--continue", "-c", "cont", is_flag=True, help="Resume the latest session for this project.")
 @click.option("--resume", "resume_id", default=None, metavar="ID", help="Resume a saved session.")
+@click.option("--rc", "rc_on", is_flag=True, help="Turn on Remote Control for this session (same as free-code rc).")
 @agent_options
-def chat(cont: bool = False, resume_id: Optional[str] = None, auto_yes: bool = False,
+def chat(cont: bool = False, resume_id: Optional[str] = None, rc_on: bool = False, auto_yes: bool = False,
          as_json: bool = False, model_override: Optional[str] = None,
          max_steps: Optional[int] = None, no_mcp: bool = False) -> None:
     """Start an interactive coding session."""
@@ -192,6 +193,8 @@ def chat(cont: bool = False, resume_id: Optional[str] = None, auto_yes: bool = F
     agent = _make_agent(project_root, auto_yes=auto_yes, model_override=model_override,
                         max_steps=max_steps, no_mcp=no_mcp, resume=resume_id, cont=cont)
     config = agent.config
+    if rc_on:
+        _start_rc(agent, project_root)
 
     print_welcome()
     print_model_info(config.get("provider", "free.ai"), get_model(config))
@@ -208,7 +211,7 @@ def chat(cont: bool = False, resume_id: Optional[str] = None, auto_yes: bool = F
 
     while True:
         try:
-            user_input = get_input("you> ")
+            user_input, from_app = _next_input(agent, get_input)
         except KeyboardInterrupt:
             console.print("\n[dim]Goodbye![/dim]")
             break
@@ -264,6 +267,16 @@ def chat(cont: bool = False, resume_id: Optional[str] = None, auto_yes: bool = F
                 else:
                     print_error("No matching session. Try /sessions.")
                 continue
+            elif cmd == "/rc":
+                if rest.strip() == "off":
+                    _rc_off(agent)
+                elif rest.strip() == "status":
+                    console.print(f"Remote Control: {'on, ' + agent.rc.url if agent.rc and agent.rc.active else 'off'}")
+                elif agent.rc and agent.rc.active:
+                    console.print(f"Remote Control is already on: {agent.rc.url}")
+                else:
+                    _start_rc(agent, project_root)
+                continue
             elif cmd == "/feedback":
                 feedback_ui.feedback_command(rest, agent.messages, agent.client.model)
                 continue
@@ -305,6 +318,7 @@ def chat(cont: bool = False, resume_id: Optional[str] = None, auto_yes: bool = F
                 continue
 
         try:
+            agent._emit("prompt", {"text": user_input[:2000], "source": "app" if from_app else "terminal"})
             asyncio.run(agent.chat(user_input))
             if agent.last_error:
                 _hint_login_on_limit(agent.last_error)
@@ -315,6 +329,65 @@ def chat(cont: bool = False, resume_id: Optional[str] = None, auto_yes: bool = F
             from free_code import telemetry
             telemetry.report_exception(e, agent.client.model)
             print_error(f"Agent error: {e}")
+
+
+def _next_input(agent, get_input):
+    """Next line from the terminal, or a prompt sent from the app when Remote Control is on."""
+    from free_code.rc import TerminalReader
+
+    rc = agent.rc
+    if agent.reader is None and not (rc and rc.active):
+        return get_input("you> "), False
+    reader = agent.reader or TerminalReader()
+    agent.reader = reader
+    if reader._busy:
+        console.print("[bold cyan]you> [/bold cyan]", end="")
+    reader.request("you> ")
+    while True:
+        if rc and rc.active:
+            text = rc.next_remote_prompt()
+            if text:
+                console.print(f"\n[cyan][from the app][/cyan] {text}")
+                return text, True
+        got, line = reader.get(0.3 if (rc and rc.active) else None)
+        if got:
+            return (line.strip() if line is not None else None), False
+
+
+def _start_rc(agent, project_root: Path) -> bool:
+    import atexit
+
+    from free_code.rc import RCError, RemoteControl, TerminalReader
+
+    token = agent.config.get("token")
+    if not token:
+        console.print("[yellow]Remote Control needs a Free.ai sign-in. Run: free-code login[/yellow]")
+        return False
+    rc = RemoteControl(token, project=project_root.name, model=agent.client.model,
+                       notify=lambda m: console.print(f"\n[dim]{m}[/dim]"))
+    try:
+        rc.start()
+    except RCError as e:
+        console.print(f"[red]{e}[/red]")
+        return False
+    agent.rc = rc
+    agent.reader = agent.reader or TerminalReader()
+    atexit.register(rc.stop)
+    console.print(f"[green]Remote Control is on.[/green] Open the Free.ai app, or {rc.url}")
+    console.print("[dim]Prompts and approvals also appear here; file writes and commands still need approval. "
+                  "Only your account can see this session. End it with /rc off or free-code rc off.[/dim]")
+    if agent.auto_approve or not agent.safe_mode:
+        console.print("[yellow]Approvals are off in this session (--yes or safe_mode false), so a prompt sent "
+                      "from the app can edit files and run commands without asking.[/yellow]")
+    return True
+
+
+def _rc_off(agent) -> None:
+    if agent.rc and agent.rc.active:
+        agent.rc.stop()
+        console.print("[green]Remote Control ended.[/green]")
+    else:
+        console.print("[dim]Remote Control is not on in this session.[/dim]")
 
 
 def _hint_login_on_limit(error: str) -> None:
@@ -948,3 +1021,51 @@ def mcp_trust() -> None:
     if click.confirm("Allow these in this project?", default=False):
         trust(root)
         console.print("[green]Trusted.[/green]")
+
+
+@main.group("rc", invoke_without_command=True)
+@click.option("--continue", "-c", "cont", is_flag=True, help="Resume the latest session for this project.")
+@click.option("--resume", "resume_id", default=None, metavar="ID", help="Resume a saved session.")
+@click.option("--model", "model_override", default=None, help="Model id for this session.")
+@click.pass_context
+def rc(ctx: click.Context, cont: bool, resume_id: Optional[str], model_override: Optional[str]) -> None:
+    """Remote Control: start a session you can watch and drive from the Free.ai app."""
+    if ctx.invoked_subcommand is not None:
+        return
+    ctx.invoke(chat, cont=cont, resume_id=resume_id, rc_on=True, auto_yes=False,
+               as_json=False, model_override=model_override, max_steps=None, no_mcp=False)
+
+
+@rc.command("off")
+def rc_off() -> None:
+    """End the Remote Control session started from this machine."""
+    from free_code import rc as rc_mod
+
+    token = load_config().get("token")
+    if not token:
+        raise click.ClickException("Not signed in. Run: free-code login")
+    console.print(rc_mod.stop_from_state(token))
+
+
+@rc.command("status")
+def rc_status() -> None:
+    """Show this account's Remote Control sessions."""
+    import httpx
+
+    from free_code import rc as rc_mod
+
+    token = load_config().get("token")
+    if not token:
+        raise click.ClickException("Not signed in. Run: free-code login")
+    try:
+        r = httpx.get(f"{rc_mod.RELAY_BASE}/api/v1/code/rc/sessions/", headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        rows = r.json().get("sessions", []) if r.status_code == 200 else []
+    except (httpx.HTTPError, ValueError):
+        raise click.ClickException("Could not reach free.ai.")
+    mine = rc_mod.read_state()
+    if not rows:
+        console.print("[dim]No remote sessions.[/dim]")
+    for row in rows:
+        mark = " (this machine)" if mine and mine.get("session_id") == row["id"] else ""
+        console.print(f"  {row['id'][:8]}  {row['status']:5s}  {row['project']} on {row['host']}{mark}")
+    console.print("[dim]Web: https://free.ai/code/sessions/[/dim]")
