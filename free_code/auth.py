@@ -82,6 +82,7 @@ def login_flow() -> None:
 
 
 LOGIN_BASE = "https://free.ai"
+MANUAL_URL = "https://free.ai/code/login/"
 POLL_FLOOR = 2.0
 
 
@@ -89,9 +90,28 @@ class LoginFailed(RuntimeError):
     """The browser sign-in did not complete."""
 
 
+def device_os() -> str:
+    """A short OS name for the approve page, e.g. "Windows 11", "macOS", "Linux"."""
+    import platform
+    system = platform.system() or ""
+    if system == "Darwin":
+        return "macOS"
+    if system == "Windows":
+        rel = platform.release() or ""
+        try:
+            # Windows 11 still reports release "10"; build 22000+ is 11.
+            if rel == "10" and int((platform.version() or "0").split(".")[-1]) >= 22000:
+                rel = "11"
+        except ValueError:
+            pass
+        return f"Windows {rel}".strip()
+    return system[:19]
+
+
 def start_login(client: httpx.Client, base: str = LOGIN_BASE) -> Dict[str, Any]:
     r = client.post(f"{base}/api/v1/code/login/start/",
-                    json={"hostname": socket.gethostname()[:60], "client": f"free-code/{__version__}"},
+                    json={"hostname": socket.gethostname()[:60], "client": f"free-code/{__version__}",
+                          "os": device_os()},
                     headers={"User-Agent": f"free-code/{__version__}"}, timeout=15)
     if r.status_code == 429:
         raise LoginFailed("Too many sign-in attempts from this network. Try again in a few minutes.")
@@ -132,9 +152,11 @@ def poll_login(client: httpx.Client, poll_token: str, expires_in: float, interva
         if r.status_code == 409:
             raise LoginFailed(str(r.json().get("error", "The account cannot take another key.")))
         if r.status_code == 410:
-            raise LoginFailed("The sign-in was cancelled or expired. Run free-code login to try again.")
+            raise LoginFailed("This code expired or was cancelled. Run free-code login again to get a new one.")
         raise LoginFailed(f"Unexpected response while waiting (HTTP {r.status_code}).")
-    raise LoginFailed("Timed out waiting for approval (10 minutes). Run free-code login to try again.")
+    minutes = max(1, int(round(float(expires_in) / 60)))
+    raise LoginFailed(f"The code expired after {minutes} minutes without approval. "
+                      "Run free-code login again to get a new one.")
 
 
 def browser_login(open_browser: bool = True, client: Optional[httpx.Client] = None) -> bool:
@@ -155,8 +177,9 @@ def browser_login(open_browser: bool = True, client: Optional[httpx.Client] = No
         console.print("[bold]Sign in to Free.ai[/bold]")
         console.print(f"  Open:  [link={info['verification_url']}]{info['verification_url']}[/link]")
         console.print(f"  Code:  [bold]{info['code']}[/bold]  (check it matches on that page)")
-        console.print("[dim]On a remote machine, open that address on any device and approve there. "
-                      "New to Free.ai? You can create a free account on the same page.[/dim]")
+        minutes = max(1, int(round(float(info["expires_in"]) / 60)))
+        console.print(f"[dim]If the link does not open, go to {MANUAL_URL} on any device and type the code. "
+                      f"New to Free.ai? Create a free account on the same page. The code lasts {minutes} minutes.[/dim]")
         if open_browser:
             try:
                 webbrowser.open(info["verification_url"])

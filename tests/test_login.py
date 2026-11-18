@@ -50,9 +50,9 @@ def test_poll_slow_down_then_key_limit(monkeypatch):
 
 
 def test_poll_times_out(monkeypatch):
-    ticks = iter(range(0, 10000, 400))
-    with pytest.raises(auth.LoginFailed, match="Timed out"):
-        auth.poll_login(client(lambda r: httpx.Response(202, json={})), "t" * 30, 600,
+    ticks = iter(range(0, 100000, 400))
+    with pytest.raises(auth.LoginFailed, match="expired after 30 minutes.*free-code login again"):
+        auth.poll_login(client(lambda r: httpx.Response(202, json={})), "t" * 30, 1800,
                         sleep=lambda s: None, clock=lambda: next(ticks))
 
 
@@ -65,3 +65,36 @@ def test_network_down_returns_false(home):
     def boom(req):
         raise httpx.ConnectError("down")
     assert auth.browser_login(client=client(boom)) is False
+
+
+def test_start_reports_the_os_and_screen_shows_link_and_manual_fallback(home, monkeypatch, capsys):
+    """The approve page names the device OS; the terminal shows the link with
+    the code in it AND the plain address to type the code into (2026-11-18)."""
+    monkeypatch.setattr(auth.time, "sleep", lambda s: None)
+    monkeypatch.setattr(auth.webbrowser, "open", lambda u: True)
+    monkeypatch.setattr(auth, "device_os", lambda: "Windows 11")
+    seen = {}
+
+    def handler(req):
+        if req.url.path.endswith("/login/start/"):
+            import json
+            seen.update(json.loads(req.content))
+            return httpx.Response(201, json={"code": "ABCD-2345", "poll_token": "p" * 30,
+                                             "verification_url": "https://free.ai/code/login/?code=ABCD-2345",
+                                             "expires_in": 1800, "interval": 2})
+        return httpx.Response(410, json={"status": "expired"})
+
+    auth.console.width = 400
+    assert auth.browser_login(client=client(handler)) is False
+    out = capsys.readouterr().out
+    assert seen["os"] == "Windows 11"
+    assert "https://free.ai/code/login/?code=ABCD-2345" in out
+    assert "go to https://free.ai/code/login/ on any device and type the code" in out
+    assert "30 minutes" in out
+    assert "free-code login again" in out
+
+
+def test_device_os_is_short_and_plain():
+    v = auth.device_os()
+    assert 0 < len(v) <= 19
+    assert all(c.isalnum() or c in " ._()-" for c in v)
