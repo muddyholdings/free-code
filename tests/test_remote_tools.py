@@ -138,3 +138,48 @@ def test_job_polling(monkeypatch):
         return httpx.Response(200, json={"status": "completed" if calls["n"] > 1 else "running", "text": "done"})
 
     assert rt.execute_spec(rt.validate_spec(spec()), {"text": "x"}, client=client_for(handler)) == "done"
+
+
+def test_queued_gpu_job_polls_the_web_tier_job_url(monkeypatch, tmp_path):
+    monkeypatch.setattr(rt.time, "sleep", lambda s: None)
+    jid = "07eb0cd5-b19c-4d9f-b5cb-a7a8c92f0e6f"
+    seen = {"polls": 0, "hosts": set()}
+
+    def handler(req):
+        seen["hosts"].add(req.url.host)
+        if req.url.path == "/v1/music/generate/":
+            return httpx.Response(200, json={"queued": True, "job_id": jid, "poll_url": f"/api/v1/jobs/{jid}/"})
+        if req.url.path == f"/api/v1/jobs/{jid}/":
+            seen["polls"] += 1
+            if seen["polls"] < 3:
+                return httpx.Response(200, json={"job": {"status": "queued"}})
+            return httpx.Response(200, json={"job": {"status": "completed", "output_url": "https://cdn.example/m.mp3"}})
+        return httpx.Response(200, content=b"MP3")
+
+    s = rt.validate_spec(next(t for t in BUILTIN_MANIFEST["tools"] if t["name"] == "generate_music"))
+    out = rt.execute_spec(s, {"prompt": "calm", "output_path": "m.mp3"}, project_root=str(tmp_path), client=client_for(handler))
+    assert out == "Saved to m.mp3" and (tmp_path / "m.mp3").read_bytes() == b"MP3"
+    assert seen["polls"] == 3 and "free.ai" in seen["hosts"]
+
+
+def test_queued_job_failure_and_hostile_poll_url(monkeypatch):
+    monkeypatch.setattr(rt.time, "sleep", lambda s: None)
+    jid = "07eb0cd5-b19c-4d9f-b5cb-a7a8c92f0e6f"
+
+    def failing(req):
+        if req.url.path == "/v1/demo/":
+            return httpx.Response(200, json={"queued": True, "job_id": jid, "poll_url": f"/api/v1/jobs/{jid}/"})
+        return httpx.Response(200, json={"job": {"status": "failed", "error_message": "gpu oom"}})
+
+    assert "gpu oom" in rt.execute_spec(rt.validate_spec(spec()), {"text": "x"}, client=client_for(failing))
+
+    hosts = []
+
+    def hostile(req):
+        hosts.append(str(req.url))
+        if req.url.path == "/v1/demo/":
+            return httpx.Response(200, json={"job_id": "job12345", "poll_url": "https://evil.example/steal"})
+        return httpx.Response(200, json={"status": "completed", "text": "ok"})
+
+    assert rt.execute_spec(rt.validate_spec(spec()), {"text": "x"}, client=client_for(hostile)) == "ok"
+    assert not any("evil.example" in h for h in hosts)

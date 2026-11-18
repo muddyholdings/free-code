@@ -288,7 +288,7 @@ def execute_spec(
 
         job_id = data.get("job_id") if isinstance(data, dict) else None
         if job_id and not _pick(data, result_cfg.get("file_url", []) + result_cfg.get("text", [])):
-            polled = _poll_job(client, api_base, str(job_id), token, timeout)
+            polled = _poll_job(client, api_base, str(job_id), token, timeout, data.get("poll_url"))
             if isinstance(polled, str):
                 return polled
             data = polled
@@ -315,23 +315,46 @@ def _resolve_read(project_root: Optional[str], rel: str) -> "Path | str":
     return p
 
 
-def _poll_job(client: httpx.Client, api_base: str, job_id: str, token: Optional[str], timeout: float) -> "Dict[str, Any] | str":
+WEB_BASE = "https://free.ai"
+JOB_URL_RE = re.compile(r"^/api/v1/jobs/[0-9a-f\-]{36}/$")
+
+
+def _poll_job(client: httpx.Client, api_base: str, job_id: str, token: Optional[str], timeout: float,
+              poll_url: Optional[str] = None) -> "Dict[str, Any] | str":
+    """Wait for a queued GPU job. Free.ai answers a busy GPU with {queued, job_id, poll_url}
+    (poll the web tier's /api/v1/jobs/<id>/) and other endpoints with a bare job_id
+    (poll the API's /v1/status/<id>/)."""
     if not re.fullmatch(r"[A-Za-z0-9_\-]{4,80}", job_id):
         return "Error: unexpected job id from API"
+    if isinstance(poll_url, str) and JOB_URL_RE.match(poll_url):
+        url = WEB_BASE + poll_url
+        queue_job = True
+    else:
+        url = f"{api_base.rstrip('/')}/v1/status/{job_id}/"
+        queue_job = False
     deadline = time.time() + POLL_MAX_SECONDS
+    last = ""
     while time.time() < deadline:
         time.sleep(POLL_SECONDS)
         try:
-            r = client.get(f"{api_base.rstrip('/')}/v1/status/{job_id}/", headers=_headers(token), timeout=30)
+            r = client.get(url, headers=_headers(token), timeout=30)
             data = r.json()
         except (httpx.HTTPError, ValueError):
             continue
+        if queue_job:
+            data = data.get("job") if isinstance(data, dict) and isinstance(data.get("job"), dict) else data
         status = str(data.get("status", "")).lower()
+        last = status
         if status in ("completed", "complete", "done", "success", "succeeded"):
-            return data
-        if status in ("failed", "error", "cancelled"):
-            return f"Error: job {job_id} {status}: {str(data.get('error', ''))[:200]}"
-    return f"Error: job {job_id} did not finish within {POLL_MAX_SECONDS}s (still running on Free.ai)"
+            out = dict(data)
+            link = out.get("output_url")
+            if isinstance(link, str) and link.startswith("/"):
+                out["output_url"] = WEB_BASE + link
+            return out
+        if status in ("failed", "error", "cancelled", "rejected"):
+            return f"Error: job {job_id} {status}: {str(data.get('error_message') or data.get('error', ''))[:200]}"
+    return (f"Error: job {job_id} did not finish within {POLL_MAX_SECONDS}s (last status {last or 'unknown'}). "
+            "It keeps running on Free.ai; the result will appear under your jobs at https://free.ai/account/")
 
 
 def _finish(client: httpx.Client, spec: Dict[str, Any], data: Any, out_path: Optional[Path], project_root: Optional[str], token: Optional[str]) -> str:

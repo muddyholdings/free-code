@@ -54,7 +54,7 @@ BUILTIN_MANIFEST: Dict[str, Any] = {
             {"method": "POST", "path": "/v1/image/generate/", "timeout": 300,
              "body": {"prompt": "{prompt}", "model": "{model|flux2-klein}",
                       "aspect_ratio": "{aspect_ratio|1:1}", "negative_prompt": "{negative_prompt}"}},
-            {"file_url": ["image_url", "url"], "save_arg": "output_path"},
+            {"file_url": ["image_url", "url", "output_url"], "save_arg": "output_path"},
             "write",
         ),
         _tool(
@@ -72,7 +72,7 @@ BUILTIN_MANIFEST: Dict[str, Any] = {
             {"method": "POST", "path": "/v1/tts/", "timeout": 180,
              "body": {"text": "{text}", "model": "{model|kokoro}", "voice": "{voice|af_heart}",
                       "language": "{language|en}"}},
-            {"file_url": ["audio_url", "url"], "save_arg": "output_path"},
+            {"file_url": ["audio_url", "url", "output_url"], "save_arg": "output_path"},
             "write",
         ),
         _tool(
@@ -87,7 +87,7 @@ BUILTIN_MANIFEST: Dict[str, Any] = {
             ["prompt", "output_path"],
             {"method": "POST", "path": "/v1/music/generate/", "timeout": 300,
              "body": {"prompt": "{prompt}", "duration": "{duration|10}", "model": "{model}"}},
-            {"file_url": ["audio_url", "url"], "save_arg": "output_path"},
+            {"file_url": ["audio_url", "url", "output_url"], "save_arg": "output_path"},
             "write",
         ),
         _tool(
@@ -102,7 +102,7 @@ BUILTIN_MANIFEST: Dict[str, Any] = {
             ["prompt", "output_path"],
             {"method": "POST", "path": "/v1/video/generate/", "timeout": 600,
              "body": {"prompt": "{prompt}", "model": "{model|cogvideox}"}},
-            {"file_url": ["video_url", "url"], "save_arg": "output_path"},
+            {"file_url": ["video_url", "url", "output_url"], "save_arg": "output_path"},
             "write",
         ),
         _tool(
