@@ -90,7 +90,7 @@ function main() {
     error("Python 3.9+ is required but not found.");
     error("Install Python from https://python.org or https://free.ai/install");
     console.error("");
-    error("After installing Python, run: pip install free-code");
+    error("After installing Python, run: pip install freeai-code");
     process.exit(0); // Don't fail npm install, the bin script will show the error
   }
 
@@ -104,14 +104,14 @@ function main() {
     if (bootstrap === null) {
       error("Could not find or install pip.");
       error("Install pip manually: https://pip.pypa.io/en/stable/installation/");
-      error("Then run: pip install free-code");
+      error("Then run: pip install freeai-code");
       process.exit(0);
     }
   }
 
   const pipInfo = pip || findPip(python.cmd);
   if (!pipInfo) {
-    error("pip setup failed. Install manually: pip install free-code");
+    error("pip setup failed. Install manually: pip install freeai-code");
     process.exit(0);
   }
 
@@ -119,9 +119,9 @@ function main() {
 
   let installCmd;
   if (pipInfo.type === "pipx") {
-    installCmd = "pipx install free-code";
+    installCmd = "pipx install freeai-code";
   } else {
-    installCmd = `${pipInfo.cmd} install free-code`;
+    installCmd = `${pipInfo.cmd} install freeai-code`;
   }
 
   const result = spawnSync(installCmd, {
@@ -134,17 +134,17 @@ function main() {
     // Try with --user flag if regular install fails
     if (pipInfo.type === "pip") {
       log("Retrying with --user flag...");
-      const retry = spawnSync(`${pipInfo.cmd} install --user free-code`, {
+      const retry = spawnSync(`${pipInfo.cmd} install --user freeai-code`, {
         shell: true,
         stdio: "inherit",
       });
       if (retry.status !== 0) {
         warn("pip install failed. You may need to run manually:");
-        warn(`  ${pipInfo.cmd} install free-code`);
+        warn(`  ${pipInfo.cmd} install freeai-code`);
         process.exit(0);
       }
     } else {
-      warn("Installation failed. Run manually: pip install free-code");
+      warn("Installation failed. Run manually: pip install freeai-code");
       process.exit(0);
     }
   }

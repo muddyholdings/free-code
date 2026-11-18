@@ -10,6 +10,8 @@ from free_code.tools.search import grep_search
 from free_code.tools.git_ops import git_status, git_diff, git_commit, git_log
 from free_code.tools.test_runner import run_tests, detect_test_framework
 from free_code.tools.list_files import list_files
+from free_code.tools.web import web_fetch
+from free_code.tools.i18n import translate_file
 
 # Tool registry — maps tool names to callables
 TOOL_REGISTRY: Dict[str, Callable[..., Any]] = {
@@ -24,6 +26,8 @@ TOOL_REGISTRY: Dict[str, Callable[..., Any]] = {
     "git_log": git_log,
     "run_tests": run_tests,
     "list_files": list_files,
+    "web_fetch": web_fetch,
+    "translate_file": translate_file,
 }
 
 # Tool definitions for the LLM (function calling schema)
@@ -153,6 +157,34 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                 "pattern": {"type": "string", "description": "Glob pattern filter (e.g. '*.py')"},
                 "max_depth": {"type": "integer", "description": "Maximum directory depth"},
             },
+        },
+    },
+    {
+        "name": "web_fetch",
+        "description": "Fetch a web page (docs, an issue, an API reference) and return it as plain text.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "http(s) URL to fetch"},
+                "max_chars": {"type": "integer", "description": "Maximum characters to return (default 12000)"},
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "translate_file",
+        "description": "Translate a JSON or YAML locale file (i18n strings) into another language and write the "
+                       "result next to it. Placeholders such as {0}, {name}, %s are protected; a string whose "
+                       "placeholders change is left in the source language and reported.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Locale file, e.g. locales/en.json"},
+                "target": {"type": "string", "description": "Target language code, e.g. es, fr, ja"},
+                "source": {"type": "string", "description": "Source language code (default en)"},
+                "output_path": {"type": "string", "description": "Where to write the result (default: derived from the file name)"},
+            },
+            "required": ["path", "target"],
         },
     },
 ]

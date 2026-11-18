@@ -23,6 +23,9 @@ DEFAULTS: Dict[str, Any] = {
     "stream": True,
     "auto_commit": False,
     "theme": "monokai",
+    "feedback": None,       # None = not asked yet; True/False after the first-run prompt
+    "manifest": True,       # fetch the server tool manifest (cached, validated)
+    "update_check": True,   # once-a-day "newer version" notice
 }
 
 PROVIDER_ENDPOINTS = {
@@ -43,8 +46,12 @@ PROVIDER_MODELS = {
 
 
 def ensure_config_dir() -> None:
-    """Create config directory if it doesn't exist."""
+    """Create config directory (mode 700) if it doesn't exist."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(CONFIG_DIR, 0o700)
+    except OSError:
+        pass
 
 
 def load_config() -> Dict[str, Any]:
@@ -73,8 +80,14 @@ def save_config(config: Dict[str, Any]) -> None:
     """Save config to disk (only non-default values)."""
     ensure_config_dir()
     to_save = {k: v for k, v in config.items() if v != DEFAULTS.get(k)}
-    with open(CONFIG_FILE, "w") as f:
+    # The file can hold an API key: create it 0600, never world-readable.
+    fd = os.open(CONFIG_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         yaml.dump(to_save, f, default_flow_style=False, sort_keys=False)
+    try:
+        os.chmod(CONFIG_FILE, 0o600)
+    except OSError:
+        pass
 
 
 def get_config_value(key: str) -> Any:

@@ -40,16 +40,17 @@ find_free_code() {
   return 1
 }
 
+export FREE_CODE_INSTALLED_VIA=npm
 FREE_CODE_BIN=$(find_free_code) || true
 
 if [ -z "$FREE_CODE_BIN" ]; then
   echo "free-code: Python package not found." >&2
   echo "" >&2
   echo "Install it with:" >&2
-  echo "  pip install free-code" >&2
+  echo "  pip install freeai-code" >&2
   echo "" >&2
   echo "Or reinstall the npm package:" >&2
-  echo "  npm install -g free-code" >&2
+  echo "  npm install -g freeai-code" >&2
   exit 1
 fi
 
